@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
-import sys
 import webbrowser
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,7 +12,7 @@ from textual.containers import ScrollableContainer
 from textual.widgets import Static
 
 from mdreview.markdown import ReviewMarkdown
-from mdreview.mermaid import mermaid_live_url, preprocess_mermaid
+from mdreview.mermaid import preprocess_mermaid
 from mdreview.models import Comment, ReviewFile, ReviewStatus
 from mdreview.storage import compute_hash, load_review, reconcile_drift, save_review
 from mdreview.widgets.comment_input import CommentInput
@@ -160,7 +158,11 @@ class ReviewApp(App):
             review = load_review(path)
             current_hash = compute_hash(content)
 
-            if review.content_hash and review.content_hash != current_hash and review.comments:
+            if (
+                review.content_hash
+                and review.content_hash != current_hash
+                and review.comments
+            ):
                 reconcile_drift(review, self._lines[i])
 
             review.content_hash = current_hash
@@ -189,7 +191,6 @@ class ReviewApp(App):
         self._current_index = index
         path = self._files[index]
         content = path.read_text()
-        review = self._reviews[index]
 
         # Preprocess mermaid
         if self._mermaid_ascii_on.get(index, True):
@@ -366,8 +367,12 @@ class ReviewApp(App):
             start_block = blocks[start_idx]
             end_block = blocks[end_idx]
 
-            line_start = (start_block.source_range[0] + 1) if start_block.source_range else 1
-            line_end = end_block.source_range[1] if end_block.source_range else line_start
+            line_start = (
+                (start_block.source_range[0] + 1) if start_block.source_range else 1
+            )
+            line_end = (
+                end_block.source_range[1] if end_block.source_range else line_start
+            )
 
             def on_comment(text: str | None) -> None:
                 md.clear_selection()
@@ -414,7 +419,7 @@ class ReviewApp(App):
 
         self._update_popover()
         self._update_title_bar()
-        self._notify(f"Comment deleted")
+        self._notify("Comment deleted")
 
     def action_edit_comment(self) -> None:
         popover = self.query_one(CommentPopover)
@@ -466,7 +471,9 @@ class ReviewApp(App):
             from mdreview.widgets.confirm import ConfirmDialog
 
             self.push_screen(
-                ConfirmDialog(f"Approve with {len(review.comments)} existing comment(s)?"),
+                ConfirmDialog(
+                    f"Approve with {len(review.comments)} existing comment(s)?"
+                ),
                 callback=on_confirm,
             )
         else:
@@ -555,6 +562,7 @@ class ReviewApp(App):
         ]
 
         if unreviewed:
+
             def on_confirm(confirmed: bool) -> None:
                 if confirmed:
                     self._exit_with_summary()
@@ -571,9 +579,7 @@ class ReviewApp(App):
         has_changes = any(
             r.status == ReviewStatus.CHANGES_REQUESTED for r in self._reviews
         )
-        has_unreviewed = any(
-            r.status == ReviewStatus.UNREVIEWED for r in self._reviews
-        )
+        has_unreviewed = any(r.status == ReviewStatus.UNREVIEWED for r in self._reviews)
 
         if has_unreviewed:
             self._exit_code = 2

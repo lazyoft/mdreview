@@ -18,7 +18,9 @@ from mdreview.models import ReviewStatus
 class FileItem(ListItem):
     """A single file entry in the file selector."""
 
-    def __init__(self, path: Path, status: ReviewStatus, comment_count: int, index: int) -> None:
+    def __init__(
+        self, path: Path, status: ReviewStatus, comment_count: int, index: int
+    ) -> None:
         super().__init__()
         self.file_path = path
         self.file_status = status
@@ -31,7 +33,11 @@ class FileItem(ListItem):
         parent = self.file_path.parent.name
         display = f"{parent}/{name}" if parent != "." else name
 
-        count_str = f"  {self.comment_count} comment{'s' if self.comment_count != 1 else ''}" if self.comment_count > 0 else ""
+        count_str = (
+            f"  {self.comment_count} comment{'s' if self.comment_count != 1 else ''}"
+            if self.comment_count > 0
+            else ""
+        )
         yield Label(f" {icon}  {display}{count_str}")
 
     def _status_icon(self) -> str:

@@ -3,19 +3,20 @@
 from __future__ import annotations
 
 import re
-import urllib.parse
 
 
-MERMAID_BLOCK_RE = re.compile(
-    r"```mermaid\s*\n(.*?)```", re.DOTALL
-)
+MERMAID_BLOCK_RE = re.compile(r"```mermaid\s*\n(.*?)```", re.DOTALL)
 
 
 def render_mermaid_ascii(source: str) -> str:
     """Render mermaid source as ASCII art."""
     stripped = source.strip()
     try:
-        from mermaid_ascii import parse_mermaid, render_flowchart_ascii, render_sequence_ascii
+        from mermaid_ascii import (
+            parse_mermaid,
+            render_flowchart_ascii,
+            render_sequence_ascii,
+        )
 
         parsed = parse_mermaid(stripped)
 
@@ -35,17 +36,21 @@ def mermaid_live_url(source: str) -> str:
     import base64
     import json
 
-    state = json.dumps({
-        "code": source.strip(),
-        "mermaid": {"theme": "default"},
-        "autoSync": True,
-        "updateDiagram": True,
-    })
+    state = json.dumps(
+        {
+            "code": source.strip(),
+            "mermaid": {"theme": "default"},
+            "autoSync": True,
+            "updateDiagram": True,
+        }
+    )
     encoded = base64.urlsafe_b64encode(state.encode()).decode()
     return f"https://mermaid.live/edit#base64:{encoded}"
 
 
-def preprocess_mermaid(content: str, render_ascii: bool = True) -> tuple[str, list[dict]]:
+def preprocess_mermaid(
+    content: str, render_ascii: bool = True
+) -> tuple[str, list[dict]]:
     """Replace mermaid code blocks with ASCII art or placeholder.
 
     Returns (processed_content, list of mermaid block info dicts).
@@ -71,13 +76,15 @@ def preprocess_mermaid(content: str, render_ascii: bool = True) -> tuple[str, li
             source = "\n".join(mermaid_lines)
             ascii_art = render_mermaid_ascii(source) if render_ascii else source
 
-            diagrams.append({
-                "source": source,
-                "line_start": start_line + 1,  # 1-indexed
-                "line_end": end_line + 1,
-                "ascii_art": ascii_art,
-                "url": mermaid_live_url(source),
-            })
+            diagrams.append(
+                {
+                    "source": source,
+                    "line_start": start_line + 1,  # 1-indexed
+                    "line_end": end_line + 1,
+                    "ascii_art": ascii_art,
+                    "url": mermaid_live_url(source),
+                }
+            )
 
             # Replace with a code block containing the ASCII art
             result_lines.append("```")

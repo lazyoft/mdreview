@@ -74,14 +74,19 @@ def reconcile_drift(review: ReviewFile, lines: list[str]) -> bool:
 
         # Check if anchor text still matches at recorded position
         start = comment.line_start - 1  # 1-indexed to 0-indexed
-        if 0 <= start < len(lines) and lines[start].strip() == comment.anchor_text.strip():
+        if (
+            0 <= start < len(lines)
+            and lines[start].strip() == comment.anchor_text.strip()
+        ):
             continue  # Still in place
 
         # Fuzzy search for the anchor text in the file
         best_idx = -1
         best_ratio = 0.0
         for i, line in enumerate(lines):
-            ratio = SequenceMatcher(None, comment.anchor_text.strip(), line.strip()).ratio()
+            ratio = SequenceMatcher(
+                None, comment.anchor_text.strip(), line.strip()
+            ).ratio()
             if ratio > best_ratio:
                 best_ratio = ratio
                 best_idx = i
