@@ -2,34 +2,6 @@
   "file": "design.md",
   "content_hash": "sha256:a07e0c438aa531a667a3c77cea455eceab36613879d7946e490acf1cce804175",
   "status": "approved",
-  "comments": [
-    {
-      "id": "de2910ab",
-      "line_start": 11,
-      "line_end": 13,
-      "anchor_text": "- Allow users to select line ranges and attach comments (like code review tools)",
-      "body": "Ecco qui",
-      "created_at": "2026-02-21T09:15:23.977431+00:00",
-      "orphaned": false
-    },
-    {
-      "id": "5dc813a6",
-      "line_start": 24,
-      "line_end": 24,
-      "anchor_text": "## Decisions",
-      "body": "Altro",
-      "created_at": "2026-02-21T09:15:42.755729+00:00",
-      "orphaned": false
-    },
-    {
-      "id": "003220da",
-      "line_start": 46,
-      "line_end": 47,
-      "anchor_text": "**Choice**: Use `mermaid-ascii` library for inline rendering. Offer `o` key to open in browser via `mermaid.live` URL.",
-      "body": "Ancora",
-      "created_at": "2026-02-21T09:15:55.030978+00:00",
-      "orphaned": false
-    }
-  ],
+  "comments": [],
   "reviewed_at": "2026-02-21T09:13:16.512663+00:00"
 }

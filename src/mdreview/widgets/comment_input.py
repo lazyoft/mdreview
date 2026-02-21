@@ -46,10 +46,18 @@ class CommentInput(ModalScreen[str | None]):
     }
     """
 
-    def __init__(self, line_start: int, line_end: int) -> None:
+    def __init__(
+        self,
+        line_start: int,
+        line_end: int,
+        initial_text: str = "",
+        title: str | None = None,
+    ) -> None:
         super().__init__()
         self.line_start = line_start
         self.line_end = line_end
+        self._initial_text = initial_text
+        self._title = title
 
     def compose(self) -> ComposeResult:
         range_str = (
@@ -57,9 +65,10 @@ class CommentInput(ModalScreen[str | None]):
             if self.line_start == self.line_end
             else f"L{self.line_start}-{self.line_end}"
         )
+        label = self._title or f"Add Comment ({range_str})"
         with Vertical():
-            yield Label(f"Add Comment ({range_str})", id="ci-title")
-            yield TextArea(id="ci-text")
+            yield Label(label, id="ci-title")
+            yield TextArea(self._initial_text, id="ci-text")
             yield Label("Ctrl+S submit  |  Esc cancel", id="ci-help")
 
     def on_mount(self) -> None:

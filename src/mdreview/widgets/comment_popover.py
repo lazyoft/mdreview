@@ -89,7 +89,7 @@ def _estimate_height(comments: list[Comment]) -> int:
         total += body_lines
         # Margin-bottom between cards = 1 row
         total += 1
-    # Help label "[d] delete comment" = 1 row + padding-top(1)
+    # Help label "[d] delete  [e] edit" = 1 row + padding-top(1)
     if comments:
         total += 2
     # Popover border (top + bottom) = 2, padding (top + bottom) = 2
@@ -140,7 +140,7 @@ class CommentPopover(Widget):
         for comment in self._comments:
             yield CommentCard(comment)
         if self._comments:
-            yield Label("[d] delete comment", classes="cp-help")
+            yield Label("[d] delete  [e] edit", classes="cp-help")
 
     def show_comments(self, comments: list[Comment], block_y: int = 0) -> None:
         self._comments = comments

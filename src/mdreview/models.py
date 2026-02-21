@@ -25,6 +25,7 @@ class Comment:
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
     orphaned: bool = False  # True if anchor could not be re-matched after drift
+    updated_at: str | None = None
 
 
 @dataclass

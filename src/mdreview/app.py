@@ -104,6 +104,7 @@ class ReviewApp(App):
         Binding("f", "open_file_selector", "Files", priority=True),
         Binding("c", "comment", "Comment", priority=True),
         Binding("d", "delete_comment", "Delete comment", priority=True),
+        Binding("e", "edit_comment", "Edit comment", priority=True),
         Binding("A", "approve", "Approve", priority=True),
         Binding("R", "request_changes", "Request changes", priority=True),
         Binding("question_mark", "show_help", "Help", priority=True),
@@ -402,6 +403,40 @@ class ReviewApp(App):
         self._update_popover()
         self._update_title_bar()
         self._notify(f"Comment deleted")
+
+    def action_edit_comment(self) -> None:
+        popover = self.query_one(CommentPopover)
+        if not popover.active_comments:
+            return
+
+        comment = popover.active_comments[0]
+        range_str = (
+            f"L{comment.line_start}"
+            if comment.line_start == comment.line_end
+            else f"L{comment.line_start}-{comment.line_end}"
+        )
+
+        def on_edit(text: str | None) -> None:
+            if text and text != comment.body:
+                comment.body = text
+                comment.updated_at = datetime.now(timezone.utc).isoformat()
+                review = self._reviews[self._current_index]
+                save_review(self._files[self._current_index], review)
+
+                md = self.query_one(ReviewMarkdown)
+                md.set_comments(review.comments)
+                self._update_popover()
+                self._notify(f"Comment updated ({range_str})")
+
+        self.push_screen(
+            CommentInput(
+                comment.line_start,
+                comment.line_end,
+                initial_text=comment.body,
+                title=f"Edit Comment ({range_str})",
+            ),
+            callback=on_edit,
+        )
 
     # --- Review actions ---
 
