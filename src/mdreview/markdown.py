@@ -22,8 +22,8 @@ class ReviewMarkdown(Markdown):
     }
 
     ReviewMarkdown MarkdownBlock.has-comment {
-        border-left: wide $warning;
-        background: $warning 8%;
+        border-left: wide $error;
+        background: $error 8%;
     }
 
     ReviewMarkdown MarkdownBlock.cursor {
@@ -31,8 +31,8 @@ class ReviewMarkdown(Markdown):
     }
 
     ReviewMarkdown MarkdownBlock.cursor.has-comment {
-        border-left: wide $warning;
-        background: $warning 15%;
+        border-left: wide $error;
+        background: $error 15%;
     }
 
     ReviewMarkdown MarkdownBlock.selecting {

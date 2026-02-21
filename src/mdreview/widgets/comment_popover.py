@@ -20,10 +20,10 @@ class CommentCard(Static):
 
     DEFAULT_CSS = """
     CommentCard {
-        border: round $warning;
+        border: round $error;
         padding: 0 1;
         margin-bottom: 1;
-        background: $warning 5%;
+        background: $error 5%;
         width: 1fr;
         height: auto;
     }
@@ -109,7 +109,7 @@ class CommentPopover(Widget):
     CommentPopover {
         layer: overlay;
         background: $surface;
-        border: thick $warning;
+        border: thick $error;
         padding: 1;
         display: none;
     }

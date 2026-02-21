@@ -32,7 +32,7 @@ def mermaid_live_url(source: str) -> str:
         "updateDiagram": True,
     })
     encoded = base64.urlsafe_b64encode(state.encode()).decode()
-    return f"https://mermaid.live/edit#pako:{encoded}"
+    return f"https://mermaid.live/edit#base64:{encoded}"
 
 
 def preprocess_mermaid(content: str, render_ascii: bool = True) -> tuple[str, list[dict]]:

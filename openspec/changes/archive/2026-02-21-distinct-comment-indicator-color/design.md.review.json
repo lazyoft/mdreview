@@ -1,0 +1,26 @@
+{
+  "file": "design.md",
+  "content_hash": "sha256:695c75c8dc1e1f3f68aee27252775fa96f7fa8d11adf9280b9fe3fa74fad5929",
+  "status": "unreviewed",
+  "comments": [
+    {
+      "id": "c8f83d90",
+      "line_start": 6,
+      "line_end": 6,
+      "anchor_text": "- `ReviewMarkdown` in `markdown.py` \u2014 gutter border colors for `.has-comment`, `.cursor`, `.cursor.has-comment`",
+      "body": "Not sure about this. Can we double check?",
+      "created_at": "2026-02-21T10:03:23.799216+00:00",
+      "orphaned": false
+    },
+    {
+      "id": "4f88b0a2",
+      "line_start": 16,
+      "line_end": 16,
+      "anchor_text": "- Changing cursor-over-comment precedence logic",
+      "body": "Another comment",
+      "created_at": "2026-02-21T10:06:08.670498+00:00",
+      "orphaned": false
+    }
+  ],
+  "reviewed_at": null
+}

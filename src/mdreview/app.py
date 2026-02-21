@@ -86,8 +86,20 @@ class FooterBar(Static):
     }
     """
 
-    NORMAL = " [c] comment  [f] files  [\u2190\u2192] prev/next  [A] approve  [R] request changes  [?] help  [q] quit"
-    SELECTING = " [c] confirm selection  [Shift+\u2191\u2193] extend  [Esc] cancel"
+    NORMAL = (
+        " [bold ansi_bright_yellow]c[/] comment  "
+        "[bold ansi_bright_yellow]f[/] files  "
+        "[bold ansi_bright_yellow]\u2190\u2192[/] prev/next  "
+        "[bold ansi_bright_yellow]A[/] approve  "
+        "[bold ansi_bright_yellow]R[/] request changes  "
+        "[bold ansi_bright_yellow]?[/] help  "
+        "[bold ansi_bright_yellow]q[/] quit"
+    )
+    SELECTING = (
+        " [bold ansi_bright_yellow]c[/] confirm selection  "
+        "[bold ansi_bright_yellow]Shift+\u2191\u2193[/] extend  "
+        "[bold ansi_bright_yellow]Esc[/] cancel"
+    )
 
     def set_mode(self, mode: str = "normal") -> None:
         if mode == "selecting":
@@ -505,9 +517,15 @@ class ReviewApp(App):
         if not diagrams:
             self._notify("No mermaid diagrams in this document")
             return
-        # Open the first diagram's URL
-        url = diagrams[0]["url"]
-        webbrowser.open(url)
+        # Find the diagram closest to the cursor
+        md = self.query_one(ReviewMarkdown)
+        block = md.cursor_block
+        if block and block.source_range:
+            cursor_line = block.source_range[0] + 1  # 1-indexed
+            diagram = min(diagrams, key=lambda d: abs(d["line_start"] - cursor_line))
+        else:
+            diagram = diagrams[0]
+        webbrowser.open(diagram["url"])
 
     def action_toggle_mermaid(self) -> None:
         idx = self._current_index

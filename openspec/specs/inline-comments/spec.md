@@ -18,7 +18,7 @@ The system SHALL provide a modal text input for writing a comment and persist it
 
 #### Scenario: Submit a comment
 - **WHEN** user types a comment in the modal input and presses `Ctrl+Enter`
-- **THEN** the comment is saved to `<filename>.review.json` with the line range, anchor text, timestamp, and a unique ID, and gutter markers + background highlight appear on the commented lines
+- **THEN** the comment is saved to `<filename>.review.json` with the line range, anchor text, timestamp, and a unique ID, and a left-border indicator + background highlight appear on the commented lines using the `$error` theme color (visually distinct from the `$accent` cursor indicator)
 
 #### Scenario: Cancel comment input
 - **WHEN** user presses `Escape` during comment input
@@ -28,8 +28,8 @@ The system SHALL provide a modal text input for writing a comment and persist it
 The system SHALL display a floating popover with comment details when the cursor enters a commented line range.
 
 #### Scenario: Popover appears on commented lines
-- **WHEN** user navigates to a line that has a `●` gutter marker
-- **THEN** a floating popover appears anchored to that region showing the comment body, line range, and action hints `[d] delete  [e] edit`
+- **WHEN** user navigates to a line that has a left-border gutter indicator
+- **THEN** a floating popover appears anchored to that region showing the comment body, line range, and action hints `[d] delete  [e] edit`, styled with a `$error` border and background tint
 
 #### Scenario: Popover dismisses when leaving region
 - **WHEN** user navigates away from a commented line range
@@ -44,7 +44,7 @@ The system SHALL allow the user to delete an existing comment from the popover.
 
 #### Scenario: Delete comment from popover
 - **WHEN** the comment popover is active and user presses `d`
-- **THEN** the comment is removed from the sidecar file, the popover updates or dismisses, and gutter markers / background highlight are removed if no other comments remain on those lines
+- **THEN** the comment is removed from the sidecar file, the popover updates or dismisses, and the left-border indicator / background highlight are removed if no other comments remain on those lines
 
 ### Requirement: Comment persistence format
 The system SHALL store comments in a JSON sidecar file named `<filename>.review.json` alongside the reviewed markdown file.
