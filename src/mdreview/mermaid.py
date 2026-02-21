@@ -12,12 +12,22 @@ MERMAID_BLOCK_RE = re.compile(
 
 
 def render_mermaid_ascii(source: str) -> str:
-    """Attempt to render mermaid source as ASCII art."""
+    """Render mermaid source as ASCII art."""
+    stripped = source.strip()
     try:
-        from mermaid_ascii import mermaid_to_ascii
-        return mermaid_to_ascii(source.strip())
+        from mermaid_ascii import parse_mermaid, render_flowchart_ascii, render_sequence_ascii
+
+        parsed = parse_mermaid(stripped)
+
+        # Dispatch based on parsed type
+        type_name = type(parsed).__name__
+        if type_name == "SequenceDiagram":
+            return render_sequence_ascii(parsed).rstrip()
+        else:
+            return render_flowchart_ascii(parsed).rstrip()
     except Exception:
-        return f"[mermaid diagram - press 'o' to open in browser]\n{source.strip()}"
+        pass
+    return f"[mermaid diagram - press 'o' to open in browser]\n{stripped}"
 
 
 def mermaid_live_url(source: str) -> str:
