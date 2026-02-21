@@ -39,13 +39,17 @@ def collect_files(files: tuple[str, ...], directory: str | None) -> list[Path]:
 
 @click.command()
 @click.argument("files", nargs=-1)
-@click.option("--dir", "directory", default=None, help="Recursively find .md files in directory")
+@click.option(
+    "--dir", "directory", default=None, help="Recursively find .md files in directory"
+)
 def main(files: tuple[str, ...], directory: str | None) -> None:
     """Review markdown documents with inline comments."""
     paths = collect_files(files, directory)
 
     if not paths:
-        click.echo("No markdown files found. Usage: mdreview <file.md> [file2.md ...] [--dir <path>]")
+        click.echo(
+            "No markdown files found. Usage: mdreview <file.md> [file2.md ...] [--dir <path>]"
+        )
         raise SystemExit(2)
 
     from mdreview.app import ReviewApp
