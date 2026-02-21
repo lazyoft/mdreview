@@ -1,0 +1,55 @@
+"""CLI entry point for mdreview."""
+
+from pathlib import Path
+
+import click
+
+
+def collect_files(files: tuple[str, ...], directory: str | None) -> list[Path]:
+    """Collect markdown files from positional args and --dir flag."""
+    paths: list[Path] = []
+
+    for f in files:
+        p = Path(f)
+        if p.is_file():
+            paths.append(p.resolve())
+        elif p.is_dir():
+            paths.extend(sorted(p.rglob("*.md")))
+        else:
+            click.echo(f"Warning: skipping '{f}' (not found)", err=True)
+
+    if directory:
+        d = Path(directory)
+        if d.is_dir():
+            paths.extend(sorted(d.rglob("*.md")))
+        else:
+            click.echo(f"Error: directory '{directory}' not found", err=True)
+
+    # Deduplicate while preserving order
+    seen: set[Path] = set()
+    unique: list[Path] = []
+    for p in paths:
+        resolved = p.resolve()
+        if resolved not in seen:
+            seen.add(resolved)
+            unique.append(resolved)
+
+    return unique
+
+
+@click.command()
+@click.argument("files", nargs=-1)
+@click.option("--dir", "directory", default=None, help="Recursively find .md files in directory")
+def main(files: tuple[str, ...], directory: str | None) -> None:
+    """Review markdown documents with inline comments."""
+    paths = collect_files(files, directory)
+
+    if not paths:
+        click.echo("No markdown files found. Usage: mdreview <file.md> [file2.md ...] [--dir <path>]")
+        raise SystemExit(2)
+
+    from mdreview.app import ReviewApp
+
+    app = ReviewApp(paths)
+    result = app.run()
+    raise SystemExit(result or 0)

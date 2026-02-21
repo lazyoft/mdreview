@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mdreview"
+version = "0.1.0"
+description = "Terminal UI for reviewing markdown documents with inline comments"
+requires-python = ">=3.10"
+dependencies = [
+    "textual>=0.80",
+    "mermaid-ascii",
+    "click>=8.0",
+]
+
+[project.scripts]
+mdreview = "mdreview.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mdreview"]
