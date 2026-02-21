@@ -11,10 +11,18 @@ from textual.binding import Binding
 from textual.containers import ScrollableContainer
 from textual.widgets import Static
 
+from mdreview.diff import compute_block_diff
 from mdreview.markdown import ReviewMarkdown
 from mdreview.mermaid import preprocess_mermaid
 from mdreview.models import Comment, ReviewFile, ReviewStatus
-from mdreview.storage import compute_hash, load_review, reconcile_drift, save_review
+from mdreview.storage import (
+    compute_hash,
+    load_review,
+    load_snapshot,
+    reconcile_drift,
+    save_review,
+    save_snapshot,
+)
 from mdreview.widgets.comment_input import CommentInput
 from mdreview.widgets.comment_popover import CommentPopover
 from mdreview.widgets.file_selector import FileSelector
@@ -84,12 +92,15 @@ class FooterBar(Static):
     }
     """
 
-    NORMAL = (
+    NORMAL_BASE = (
         " [bold ansi_bright_yellow]c[/] comment  "
         "[bold ansi_bright_yellow]f[/] files  "
         "[bold ansi_bright_yellow]\u2190\u2192[/] prev/next  "
         "[bold ansi_bright_yellow]A[/] approve  "
         "[bold ansi_bright_yellow]R[/] request changes  "
+    )
+    DIFF_HINT = "[bold ansi_bright_yellow]v[/] diff  "
+    NORMAL_TAIL = (
         "[bold ansi_bright_yellow]?[/] help  "
         "[bold ansi_bright_yellow]q[/] quit"
     )
@@ -99,11 +110,28 @@ class FooterBar(Static):
         "[bold ansi_bright_yellow]Esc[/] cancel"
     )
 
+    def __init__(self) -> None:
+        super().__init__()
+        self._mode = "normal"
+        self._diff_available = False
+
     def set_mode(self, mode: str = "normal") -> None:
-        if mode == "selecting":
+        self._mode = mode
+        self._refresh()
+
+    def set_diff_available(self, available: bool) -> None:
+        self._diff_available = available
+        self._refresh()
+
+    def _refresh(self) -> None:
+        if self._mode == "selecting":
             self.update(self.SELECTING)
         else:
-            self.update(self.NORMAL)
+            text = self.NORMAL_BASE
+            if self._diff_available:
+                text += self.DIFF_HINT
+            text += self.NORMAL_TAIL
+            self.update(text)
 
 
 class ReviewApp(App):
@@ -126,6 +154,7 @@ class ReviewApp(App):
         Binding("shift+down", "select_down", "Select down", priority=True),
         Binding("o", "open_mermaid", "Open mermaid", priority=True),
         Binding("m", "toggle_mermaid", "Toggle mermaid", priority=True),
+        Binding("v", "toggle_diff", "Toggle diff", priority=True),
     ]
 
     DEFAULT_CSS = """
@@ -150,6 +179,9 @@ class ReviewApp(App):
         self._selecting = False
         self._selection_start: int | None = None
         self._exit_code = 2  # incomplete by default
+        self._snapshots: dict[int, str | None] = {}  # file index -> snapshot content
+        self._diff_available: dict[int, bool] = {}  # file index -> diff available?
+        self._diff_mode: dict[int, bool] = {}  # file index -> diff mode on?
 
         # Load reviews
         for i, path in enumerate(files):
@@ -168,6 +200,12 @@ class ReviewApp(App):
             review.content_hash = current_hash
             self._reviews.append(review)
             self._mermaid_ascii_on[i] = True
+
+            snapshot = load_snapshot(path)
+            self._snapshots[i] = snapshot
+            has_diff = snapshot is not None and snapshot != content
+            self._diff_available[i] = has_diff
+            self._diff_mode[i] = False
 
     def compose(self) -> ComposeResult:
         yield TitleBar()
@@ -206,16 +244,26 @@ class ReviewApp(App):
         self.set_timer(0.1, self._post_load)
 
     def _post_load(self) -> None:
+        idx = self._current_index
         md = self.query_one(ReviewMarkdown)
-        review = self._reviews[self._current_index]
+        review = self._reviews[idx]
         md.set_comments(review.comments)
         md.cursor_index = 0
 
+        # Apply diff if available and enabled
+        self._apply_diff_if_needed()
+
+        # Notify about unchanged files
+        snapshot = self._snapshots.get(idx)
+        if snapshot is not None and not self._diff_available.get(idx, False):
+            self._notify("No changes since last review")
+
         self._update_popover()
         self._update_title_bar()
+        self._update_footer()
 
         # Restore scroll position
-        saved = self._scroll_positions.get(self._current_index, 0)
+        saved = self._scroll_positions.get(idx, 0)
         if saved:
             scroll = self.query_one("#content-scroll", ScrollableContainer)
             scroll.scroll_y = saved
@@ -230,6 +278,10 @@ class ReviewApp(App):
         self.query_one(TitleBar).set_state(
             display, self._current_index, len(self._files), statuses
         )
+
+    def _update_footer(self) -> None:
+        footer = self.query_one(FooterBar)
+        footer.set_diff_available(self._diff_available.get(self._current_index, False))
 
     def _update_popover(self) -> None:
         md = self.query_one(ReviewMarkdown)
@@ -247,7 +299,11 @@ class ReviewApp(App):
                 screen_y = block_region.y - scroll_y + 1
             except Exception:
                 screen_y = 5
-            popover.show_comments(comments, block_y=screen_y)
+            block_changed = (
+                self._diff_mode.get(self._current_index, False)
+                and md.diff_tag_for_block(block) == "changed"
+            )
+            popover.show_comments(comments, block_y=screen_y, block_changed=block_changed)
         else:
             popover.hide()
 
@@ -484,6 +540,7 @@ class ReviewApp(App):
         review.status = ReviewStatus.APPROVED
         review.reviewed_at = datetime.now(timezone.utc).isoformat()
         save_review(self._files[self._current_index], review)
+        self._maybe_save_snapshot()
         self._update_title_bar()
         self._notify(f"Approved: {self._files[self._current_index].name}")
         self._advance_to_next()
@@ -500,9 +557,22 @@ class ReviewApp(App):
         review.status = ReviewStatus.CHANGES_REQUESTED
         review.reviewed_at = datetime.now(timezone.utc).isoformat()
         save_review(self._files[self._current_index], review)
+        self._maybe_save_snapshot()
         self._update_title_bar()
         self._notify(f"Changes requested: {self._files[self._current_index].name}")
         self._advance_to_next()
+
+    def _maybe_save_snapshot(self) -> None:
+        """Save a snapshot of the current file if content differs from existing snapshot."""
+        idx = self._current_index
+        path = self._files[idx]
+        content = path.read_text()
+        existing_snapshot = self._snapshots.get(idx)
+        if existing_snapshot != content:
+            save_snapshot(path, content)
+            self._snapshots[idx] = content
+            self._diff_available[idx] = False
+            self._diff_mode[idx] = False
 
     def _advance_to_next(self) -> None:
         """Move to the next unreviewed file, or stay if all are reviewed."""
@@ -516,6 +586,52 @@ class ReviewApp(App):
         all_reviewed = all(r.status != ReviewStatus.UNREVIEWED for r in self._reviews)
         if all_reviewed:
             self._notify("All files reviewed!")
+
+    # --- Diff ---
+
+    def _apply_diff_if_needed(self) -> None:
+        """Compute and apply diff tags if diff mode is on for the current file."""
+        idx = self._current_index
+        md = self.query_one(ReviewMarkdown)
+        md.clear_diff()
+
+        if not self._diff_mode.get(idx, False) or not self._diff_available.get(idx, False):
+            return
+
+        snapshot = self._snapshots.get(idx)
+        if snapshot is None:
+            return
+
+        path = self._files[idx]
+        current_content = path.read_text()
+        snapshot_lines = snapshot.splitlines()
+        current_lines = current_content.splitlines()
+
+        from textual.widgets._markdown import MarkdownBlock
+
+        # Only tag leaf blocks — skip parent containers (e.g. UnorderedList)
+        # whose range covers child blocks and would highlight everything
+        block_ranges = []
+        for b in md.blocks:
+            has_children = bool(b.query(MarkdownBlock))
+            block_ranges.append(b.source_range if not has_children else None)
+
+        diffs, removed = compute_block_diff(snapshot_lines, current_lines, block_ranges)
+        md.apply_diff(diffs, removed)
+
+    def action_toggle_diff(self) -> None:
+        idx = self._current_index
+        if not self._diff_available.get(idx, False):
+            snapshot = self._snapshots.get(idx)
+            if snapshot is None:
+                self._notify("No changes to diff (first review)")
+            else:
+                self._notify("No changes since last review")
+            return
+
+        self._diff_mode[idx] = not self._diff_mode.get(idx, False)
+        self._apply_diff_if_needed()
+        self._update_footer()
 
     # --- Mermaid ---
 

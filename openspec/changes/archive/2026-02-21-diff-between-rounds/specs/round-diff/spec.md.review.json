@@ -1,0 +1,17 @@
+{
+  "file": "spec.md",
+  "content_hash": "sha256:0aaf03d070d3d7a1dcc1fe19f876bad245e377c19fceabf6d64aff853f2230f7",
+  "status": "changes_requested",
+  "comments": [
+    {
+      "id": "18eb0f82",
+      "line_start": 34,
+      "line_end": 34,
+      "anchor_text": "The system SHALL provide a keybinding `D` to toggle between diff view and clean view.",
+      "body": "Why not lowercase d?",
+      "created_at": "2026-02-21T17:08:27.083343+00:00",
+      "orphaned": false
+    }
+  ],
+  "reviewed_at": "2026-02-21T17:08:55.286750+00:00"
+}

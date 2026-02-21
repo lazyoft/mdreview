@@ -29,6 +29,9 @@ HELP_TEXT = """\
    A               Approve document
    R               Request changes
 
+ Diff
+   v               Toggle diff view (changes since last review)
+
  Mermaid
    o               Open diagram in browser
    m               Toggle ASCII / raw source

@@ -1,0 +1,26 @@
+{
+  "file": "proposal.md",
+  "content_hash": "sha256:e8a0da36f0539bcb7113e332d66b11ea63010b619d158fb1cead4257bd27fc63",
+  "status": "changes_requested",
+  "comments": [
+    {
+      "id": "e0387e6f",
+      "line_start": 3,
+      "line_end": 3,
+      "anchor_text": "The footer bar uses Unicode arrow characters (`\u2190\u2192\u2191\u2193`) that don't render correctly in many terminal fonts, making the keystroke hints unreadable. Additionally, the inline-comments spec references a `\u25cf` gutter marker on commented lines, but the implementation uses a left border instead - the spec should be updated to match the actual design.",
+      "body": "It is not about the unicode, but more about the fact that the status bare has words such as comment and files which do not have anything attached. We should also show the key bindings with a different color imho",
+      "created_at": "2026-02-21T09:46:27.735996+00:00",
+      "orphaned": false
+    },
+    {
+      "id": "7b6a1678",
+      "line_start": 7,
+      "line_end": 7,
+      "anchor_text": "- Replace Unicode arrow characters in the footer bar with ASCII-compatible labels (`Left/Right`, `Up/Down`) so keystrokes are always readable regardless of terminal font",
+      "body": "Not necessarily. Make just the key bindings stand out and show in the status bar",
+      "created_at": "2026-02-21T09:46:48.035291+00:00",
+      "orphaned": false
+    }
+  ],
+  "reviewed_at": "2026-02-21T09:47:01.087785+00:00"
+}

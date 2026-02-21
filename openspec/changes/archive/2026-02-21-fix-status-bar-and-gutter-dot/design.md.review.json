@@ -1,0 +1,17 @@
+{
+  "file": "design.md",
+  "content_hash": "sha256:e83ae565b40e8802f12d476b48ec1b3f72d613c3bfac78f9382a4e4f3eeb918e",
+  "status": "approved",
+  "comments": [
+    {
+      "id": "e9befee9",
+      "line_start": 10,
+      "line_end": 10,
+      "anchor_text": "- Make footer bar keybinding hints readable in all terminal environments",
+      "body": "This is more about showing them than replacing unicode",
+      "created_at": "2026-02-21T09:47:35.799769+00:00",
+      "orphaned": true
+    }
+  ],
+  "reviewed_at": "2026-02-21T09:52:39.210065+00:00"
+}

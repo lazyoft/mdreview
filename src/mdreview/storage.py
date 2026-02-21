@@ -62,6 +62,24 @@ def save_review(md_path: Path, review: ReviewFile) -> None:
     sp.write_text(json.dumps(data, indent=2) + "\n")
 
 
+def snapshot_path(md_path: Path) -> Path:
+    return md_path.with_suffix(md_path.suffix + ".snapshot")
+
+
+def load_snapshot(md_path: Path) -> str | None:
+    """Load the snapshot content for a markdown file, or None if not found."""
+    sp = snapshot_path(md_path)
+    if not sp.exists():
+        return None
+    return sp.read_text()
+
+
+def save_snapshot(md_path: Path, content: str) -> None:
+    """Write the snapshot content to disk."""
+    sp = snapshot_path(md_path)
+    sp.write_text(content)
+
+
 def reconcile_drift(review: ReviewFile, lines: list[str]) -> bool:
     """Re-anchor comments when the markdown content has changed.
 

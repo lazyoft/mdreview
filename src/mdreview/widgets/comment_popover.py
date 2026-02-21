@@ -20,10 +20,10 @@ class CommentCard(Static):
 
     DEFAULT_CSS = """
     CommentCard {
-        border: round $error;
+        border: round #6090d0;
         padding: 0 1;
         margin-bottom: 1;
-        background: $error 5%;
+        background: #152040;
         width: 1fr;
         height: auto;
     }
@@ -64,7 +64,7 @@ class CommentCard(Static):
         yield Label(self.comment.body, classes="cc-body")
 
 
-def _estimate_height(comments: list[Comment]) -> int:
+def _estimate_height(comments: list[Comment], block_changed: bool = False) -> int:
     """Estimate the popover height in rows based on comment content.
 
     We compute this manually because Textual's auto-height doesn't work
@@ -89,6 +89,9 @@ def _estimate_height(comments: list[Comment]) -> int:
         total += body_lines
         # Margin-bottom between cards = 1 row
         total += 1
+    # Changed hint = 1 row + padding-top(1)
+    if comments and block_changed:
+        total += 2
     # Help label "[d] delete  [e] edit" = 1 row + padding-top(1)
     if comments:
         total += 2
@@ -109,13 +112,20 @@ class CommentPopover(Widget):
     CommentPopover {
         layer: overlay;
         background: $surface;
-        border: thick $error;
+        border: thick #6090d0;
         padding: 1;
         display: none;
     }
 
     CommentPopover.visible {
         display: block;
+    }
+
+    CommentPopover > Label.cp-changed-hint {
+        color: $warning;
+        text-style: italic;
+        padding-top: 1;
+        height: auto;
     }
 
     CommentPopover > Label.cp-help {
@@ -135,15 +145,21 @@ class CommentPopover(Widget):
     def __init__(self) -> None:
         super().__init__()
         self._comments: list[Comment] = []
+        self._block_changed: bool = False
 
     def compose(self) -> ComposeResult:
         for comment in self._comments:
             yield CommentCard(comment)
         if self._comments:
+            if self._block_changed:
+                yield Label("[block changed since last review]", classes="cp-changed-hint")
             yield Label("[d] delete  [e] edit", classes="cp-help")
 
-    def show_comments(self, comments: list[Comment], block_y: int = 0) -> None:
+    def show_comments(
+        self, comments: list[Comment], block_y: int = 0, block_changed: bool = False
+    ) -> None:
         self._comments = comments
+        self._block_changed = block_changed
         if comments:
             self.add_class("visible")
             self._size_and_position(comments, block_y)
@@ -162,7 +178,7 @@ class CommentPopover(Widget):
             self.styles.width = outer_width
 
             # Height: computed from content
-            h = _estimate_height(comments)
+            h = _estimate_height(comments, self._block_changed)
             max_h = screen_height - 4  # leave room for title + footer + margin
             h = min(h, max_h)
             self.styles.height = h
