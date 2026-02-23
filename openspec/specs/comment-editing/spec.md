@@ -17,9 +17,17 @@ The system SHALL allow the user to edit the body of an existing comment in-place
 - **WHEN** user presses `e` but the popover has no active comments
 - **THEN** nothing happens (no modal, no error)
 
-#### Scenario: Multiple overlapping comments
+#### Scenario: Edit with single comment
+- **WHEN** exactly one comment exists on the current block and user presses `e`
+- **THEN** the edit modal opens directly for that comment
+
+#### Scenario: Edit with multiple overlapping comments
 - **WHEN** multiple comments overlap on the current block and user presses `e`
-- **THEN** the first comment shown in the popover is opened for editing
+- **THEN** a picker dialog lists all comments (showing line range and body preview), and the selected comment is opened for editing
+
+#### Scenario: Cancel comment picker
+- **WHEN** the comment picker is shown and user presses `Escape`
+- **THEN** the picker is dismissed and no comment is edited
 
 ### Requirement: Comment updated_at tracking
 The system SHALL track when a comment was last edited via an `updated_at` field on the Comment model.
