@@ -42,8 +42,27 @@ def collect_files(files: tuple[str, ...], directory: str | None) -> list[Path]:
 @click.option(
     "--dir", "directory", default=None, help="Recursively find .md files in directory"
 )
-def main(files: tuple[str, ...], directory: str | None) -> None:
+@click.option(
+    "--config",
+    "open_config",
+    is_flag=True,
+    default=False,
+    help="Open keybinding config in $EDITOR and exit",
+)
+def main(files: tuple[str, ...], directory: str | None, open_config: bool) -> None:
     """Review markdown documents with inline comments."""
+    if open_config:
+        import os
+        import subprocess
+
+        from mdreview.keybindings import ensure_config
+
+        config_path = ensure_config()
+        editor = os.environ.get("EDITOR", "vi")
+        click.echo(f"Opening {config_path}")
+        subprocess.run([editor, str(config_path)])
+        raise SystemExit(0)
+
     paths = collect_files(files, directory)
 
     if not paths:
@@ -53,8 +72,10 @@ def main(files: tuple[str, ...], directory: str | None) -> None:
         raise SystemExit(2)
 
     from mdreview.app import ReviewApp
+    from mdreview.keybindings import load_keybindings
 
+    keybindings = load_keybindings()
     watch_dir = Path(directory).resolve() if directory else None
-    app = ReviewApp(paths, watch_dir=watch_dir)
+    app = ReviewApp(paths, watch_dir=watch_dir, keybindings=keybindings)
     result = app.run()
     raise SystemExit(result or 0)

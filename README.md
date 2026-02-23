@@ -63,6 +63,26 @@ mdreview --dir docs/
 | `?` | Show help |
 | `q` | Quit |
 
+### Customizing Keybindings
+
+All keybindings can be customized via a TOML config file. Run:
+
+```bash
+mdreview --config
+```
+
+This creates `~/.config/mdreview/keys.toml` (pre-populated with all defaults) and opens it in your `$EDITOR`. Edit any key and save — changes take effect next time you launch mdreview.
+
+Example customization:
+
+```toml
+[keys]
+quit = "x"
+approve = "a"
+cursor_up = "k"
+cursor_down = "j"
+```
+
 ### Exit Codes
 
 | Code | Meaning |

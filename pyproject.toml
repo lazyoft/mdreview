@@ -29,6 +29,7 @@ dependencies = [
     "mermaid-ascii-diagrams",
     "click>=8.0",
     "watchfiles>=0.21",
+    "tomli>=1.0; python_version < '3.11'",
 ]
 
 [project.optional-dependencies]

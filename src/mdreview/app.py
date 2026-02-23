@@ -11,6 +11,7 @@ from textual.containers import ScrollableContainer
 from textual.widgets import Static
 
 from mdreview.diff import compute_block_diff
+from mdreview.keybindings import DEFAULT_BINDINGS, ACTION_LABELS, key_label
 from mdreview.markdown import ReviewMarkdown
 from mdreview.mermaid import preprocess_mermaid
 from mdreview.models import ReviewFile, ReviewStatus
@@ -103,29 +104,16 @@ class FooterBar(Static):
     }
     """
 
-    NORMAL_BASE = (
-        " [bold ansi_bright_yellow]c[/] comment  "
-        "[bold ansi_bright_yellow]f[/] files  "
-        "[bold ansi_bright_yellow]\u2190\u2192[/] prev/next  "
-        "[bold ansi_bright_yellow]A[/] approve  "
-        "[bold ansi_bright_yellow]R[/] request changes  "
-    )
-    DELETE_ALL_HINT = "[bold ansi_bright_yellow]D[/] delete all  "
-    DIFF_HINT = "[bold ansi_bright_yellow]v[/] diff  "
-    NORMAL_TAIL = (
-        "[bold ansi_bright_yellow]?[/] help  [bold ansi_bright_yellow]q[/] quit"
-    )
-    SELECTING = (
-        " [bold ansi_bright_yellow]c[/] confirm selection  "
-        "[bold ansi_bright_yellow]Shift+\u2191\u2193[/] extend  "
-        "[bold ansi_bright_yellow]Esc[/] cancel"
-    )
-
-    def __init__(self) -> None:
+    def __init__(self, keybindings: dict[str, str] | None = None) -> None:
         super().__init__()
         self._mode = "normal"
         self._diff_available = False
         self._has_comments = False
+        self._keys = keybindings or dict(DEFAULT_BINDINGS)
+
+    def _hint(self, action: str, label: str) -> str:
+        """Format a single keybinding hint."""
+        return f"[bold ansi_bright_yellow]{key_label(self._keys[action])}[/] {label}  "
 
     def set_mode(self, mode: str = "normal") -> None:
         self._mode = mode
@@ -141,40 +129,39 @@ class FooterBar(Static):
 
     def _refresh(self) -> None:
         if self._mode == "selecting":
-            self.update(self.SELECTING)
+            comment_key = key_label(self._keys["comment"])
+            select_up = key_label(self._keys["select_up"])
+            select_down = key_label(self._keys["select_down"])
+            text = (
+                f" [bold ansi_bright_yellow]{comment_key}[/] confirm selection  "
+                f"[bold ansi_bright_yellow]{select_up}/{select_down}[/] extend  "
+                "[bold ansi_bright_yellow]Esc[/] cancel"
+            )
+            self.update(text)
         else:
-            text = self.NORMAL_BASE
+            prev_key = key_label(self._keys["prev_file"])
+            next_key = key_label(self._keys["next_file"])
+            text = (
+                " "
+                + self._hint("comment", "comment")
+                + self._hint("open_file_selector", "files")
+                + f"[bold ansi_bright_yellow]{prev_key}{next_key}[/] prev/next  "
+                + self._hint("approve", "approve")
+                + self._hint("request_changes", "request changes")
+            )
             if self._has_comments:
-                text += self.DELETE_ALL_HINT
+                text += self._hint("delete_all_comments", "delete all")
             if self._diff_available:
-                text += self.DIFF_HINT
-            text += self.NORMAL_TAIL
+                text += self._hint("toggle_diff", "diff")
+            text += (
+                self._hint("show_help", "help")
+                + f"[bold ansi_bright_yellow]{key_label(self._keys['quit'])}[/] quit"
+            )
             self.update(text)
 
 
 class ReviewApp(App):
     """Main TUI application for reviewing markdown documents."""
-
-    BINDINGS = [
-        Binding("q", "quit_app", "Quit", priority=True),
-        Binding("f", "open_file_selector", "Files", priority=True),
-        Binding("c", "comment", "Comment", priority=True),
-        Binding("d", "delete_comment", "Delete comment", priority=True),
-        Binding("e", "edit_comment", "Edit comment", priority=True),
-        Binding("A", "approve", "Approve", priority=True),
-        Binding("R", "request_changes", "Request changes", priority=True),
-        Binding("question_mark", "show_help", "Help", priority=True),
-        Binding("right", "next_file", "Next file", priority=True),
-        Binding("left", "prev_file", "Previous file", priority=True),
-        Binding("up", "cursor_up", "Up", priority=True),
-        Binding("down", "cursor_down", "Down", priority=True),
-        Binding("shift+up", "select_up", "Select up", priority=True),
-        Binding("shift+down", "select_down", "Select down", priority=True),
-        Binding("o", "open_mermaid", "Open mermaid", priority=True),
-        Binding("m", "toggle_mermaid", "Toggle mermaid", priority=True),
-        Binding("v", "toggle_diff", "Toggle diff", priority=True),
-        Binding("D", "delete_all_comments", "Delete all comments", priority=True),
-    ]
 
     DEFAULT_CSS = """
     ReviewApp {
@@ -186,7 +173,23 @@ class ReviewApp(App):
     }
     """
 
-    def __init__(self, files: list[Path], watch_dir: Path | None = None) -> None:
+    def __init__(
+        self,
+        files: list[Path],
+        watch_dir: Path | None = None,
+        keybindings: dict[str, str] | None = None,
+    ) -> None:
+        self._keybindings = keybindings or dict(DEFAULT_BINDINGS)
+        # Build BINDINGS dynamically before super().__init__
+        self.BINDINGS = [
+            Binding(
+                self._keybindings[action],
+                action if action != "quit" else "quit_app",
+                ACTION_LABELS.get(action, action),
+                priority=True,
+            )
+            for action in DEFAULT_BINDINGS
+        ]
         super().__init__()
         self._files = files
         self._watch_dir = watch_dir
@@ -233,7 +236,7 @@ class ReviewApp(App):
         with ScrollableContainer(id="content-scroll"):
             yield ReviewMarkdown()
         yield CommentPopover()
-        yield FooterBar()
+        yield FooterBar(keybindings=self._keybindings)
 
     def on_mount(self) -> None:
         self._load_file(0)
@@ -844,7 +847,7 @@ class ReviewApp(App):
     # --- Help ---
 
     def action_show_help(self) -> None:
-        self.push_screen(HelpOverlay())
+        self.push_screen(HelpOverlay(keybindings=self._keybindings))
 
     # --- Quit ---
 

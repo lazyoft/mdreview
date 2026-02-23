@@ -8,38 +8,47 @@ from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Label
 
-HELP_TEXT = """\
+from mdreview.keybindings import DEFAULT_BINDINGS, key_label
+
+
+def _build_help_text(keys: dict[str, str]) -> str:
+    """Build the help text from the active keybinding configuration."""
+    k = {action: key_label(key) for action, key in keys.items()}
+
+    return f"""\
  Navigation
-   Up / Down       Move cursor between blocks
-   Left / Right    Previous / next file
+   {k["cursor_up"]:15s} Move cursor between blocks
+   / {k["cursor_down"]}
+   {k["prev_file"]:15s} Previous / next file
+   / {k["next_file"]}
    PgUp / PgDn     Scroll page
    Home / End      Jump to start / end
 
  Comments
-   c               Start/confirm line selection
-   Shift+Up/Down   Start or extend selection
+   {k["comment"]:15s} Start/confirm line selection
+   {k["select_up"]}/{k["select_down"]:<10s} Start or extend selection
    Ctrl+S          Submit comment
-   d               Delete comment (when popover visible)
-   D               Delete all comments on file
+   {k["delete_comment"]:15s} Delete comment (when popover visible)
+   {k["delete_all_comments"]:15s} Delete all comments on file
    Esc             Cancel selection or input
 
  Files
-   f               Open file selector
+   {k["open_file_selector"]:15s} Open file selector
 
  Review
-   A               Approve document
-   R               Request changes
+   {k["approve"]:15s} Approve document
+   {k["request_changes"]:15s} Request changes
 
  Diff
-   v               Toggle diff view (changes since last review)
+   {k["toggle_diff"]:15s} Toggle diff view (changes since last review)
 
  Mermaid
-   o               Open diagram in browser
-   m               Toggle ASCII / raw source
+   {k["open_mermaid"]:15s} Open diagram in browser
+   {k["toggle_mermaid"]:15s} Toggle ASCII / raw source
 
  General
-   ?               Toggle this help
-   q               Quit"""
+   {k["show_help"]:15s} Toggle this help
+   {k["quit"]:15s} Quit"""
 
 
 class HelpOverlay(ModalScreen[None]):
@@ -82,10 +91,14 @@ class HelpOverlay(ModalScreen[None]):
     }
     """
 
+    def __init__(self, keybindings: dict[str, str] | None = None) -> None:
+        super().__init__()
+        self._keybindings = keybindings or dict(DEFAULT_BINDINGS)
+
     def compose(self) -> ComposeResult:
         with Vertical():
             yield Label("Keybindings", id="help-title")
-            yield Label(HELP_TEXT, id="help-body")
+            yield Label(_build_help_text(self._keybindings), id="help-body")
             yield Label("Press Esc or ? to close", id="help-footer")
 
     def action_dismiss_help(self) -> None:
