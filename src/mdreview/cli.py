@@ -54,6 +54,7 @@ def main(files: tuple[str, ...], directory: str | None) -> None:
 
     from mdreview.app import ReviewApp
 
-    app = ReviewApp(paths)
+    watch_dir = Path(directory).resolve() if directory else None
+    app = ReviewApp(paths, watch_dir=watch_dir)
     result = app.run()
     raise SystemExit(result or 0)

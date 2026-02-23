@@ -20,6 +20,7 @@ HELP_TEXT = """\
    Shift+Up/Down   Start or extend selection
    Ctrl+S          Submit comment
    d               Delete comment (when popover visible)
+   D               Delete all comments on file
    Esc             Cancel selection or input
 
  Files

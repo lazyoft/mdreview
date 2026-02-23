@@ -99,6 +99,7 @@ class FooterBar(Static):
         "[bold ansi_bright_yellow]A[/] approve  "
         "[bold ansi_bright_yellow]R[/] request changes  "
     )
+    DELETE_ALL_HINT = "[bold ansi_bright_yellow]D[/] delete all  "
     DIFF_HINT = "[bold ansi_bright_yellow]v[/] diff  "
     NORMAL_TAIL = (
         "[bold ansi_bright_yellow]?[/] help  "
@@ -114,6 +115,7 @@ class FooterBar(Static):
         super().__init__()
         self._mode = "normal"
         self._diff_available = False
+        self._has_comments = False
 
     def set_mode(self, mode: str = "normal") -> None:
         self._mode = mode
@@ -123,11 +125,17 @@ class FooterBar(Static):
         self._diff_available = available
         self._refresh()
 
+    def set_has_comments(self, has_comments: bool) -> None:
+        self._has_comments = has_comments
+        self._refresh()
+
     def _refresh(self) -> None:
         if self._mode == "selecting":
             self.update(self.SELECTING)
         else:
             text = self.NORMAL_BASE
+            if self._has_comments:
+                text += self.DELETE_ALL_HINT
             if self._diff_available:
                 text += self.DIFF_HINT
             text += self.NORMAL_TAIL
@@ -155,6 +163,7 @@ class ReviewApp(App):
         Binding("o", "open_mermaid", "Open mermaid", priority=True),
         Binding("m", "toggle_mermaid", "Toggle mermaid", priority=True),
         Binding("v", "toggle_diff", "Toggle diff", priority=True),
+        Binding("D", "delete_all_comments", "Delete all comments", priority=True),
     ]
 
     DEFAULT_CSS = """
@@ -167,9 +176,11 @@ class ReviewApp(App):
     }
     """
 
-    def __init__(self, files: list[Path]) -> None:
+    def __init__(self, files: list[Path], watch_dir: Path | None = None) -> None:
         super().__init__()
         self._files = files
+        self._watch_dir = watch_dir
+        self._watcher_worker = None
         self._current_index = 0
         self._reviews: list[ReviewFile] = []
         self._lines: dict[int, list[str]] = {}  # file index -> source lines
@@ -217,6 +228,7 @@ class ReviewApp(App):
     def on_mount(self) -> None:
         self._load_file(0)
         self.query_one(FooterBar).set_mode("normal")
+        self._start_file_watcher()
 
     def _load_file(self, index: int) -> None:
         # Save scroll position of current file
@@ -282,6 +294,7 @@ class ReviewApp(App):
     def _update_footer(self) -> None:
         footer = self.query_one(FooterBar)
         footer.set_diff_available(self._diff_available.get(self._current_index, False))
+        footer.set_has_comments(bool(self._reviews[self._current_index].comments))
 
     def _update_popover(self) -> None:
         md = self.query_one(ReviewMarkdown)
@@ -511,6 +524,35 @@ class ReviewApp(App):
             callback=on_edit,
         )
 
+    def action_delete_all_comments(self) -> None:
+        if self._selecting:
+            return
+        review = self._reviews[self._current_index]
+        if not review.comments:
+            return
+
+        count = len(review.comments)
+
+        def on_confirm(confirmed: bool) -> None:
+            if confirmed:
+                review.comments.clear()
+                review.status = ReviewStatus.UNREVIEWED
+                review.reviewed_at = None
+                save_review(self._files[self._current_index], review)
+
+                md = self.query_one(ReviewMarkdown)
+                md.set_comments(review.comments)
+                self.query_one(CommentPopover).hide()
+                self._update_title_bar()
+                self._notify(f"Deleted {count} comment(s)")
+
+        from mdreview.widgets.confirm import ConfirmDialog
+
+        self.push_screen(
+            ConfirmDialog(f"Delete all {count} comments on this file?"),
+            callback=on_confirm,
+        )
+
     # --- Review actions ---
 
     def action_approve(self) -> None:
@@ -655,6 +697,156 @@ class ReviewApp(App):
         self._mermaid_ascii_on[idx] = not self._mermaid_ascii_on.get(idx, True)
         self._load_file(idx)
 
+    # --- File watcher ---
+
+    def _start_file_watcher(self) -> None:
+        """Start watching reviewed files for changes."""
+        self._watcher_worker = self.run_worker(
+            self._watch_files(), exclusive=True, name="file-watcher"
+        )
+
+    async def _watch_files(self) -> None:
+        """Background task that watches for file changes."""
+        from watchfiles import awatch, Change
+
+        # Determine watch paths
+        watch_paths: set[str] = set()
+        if self._watch_dir:
+            watch_paths.add(str(self._watch_dir))
+        else:
+            # Watch parent directories of all files
+            for f in self._files:
+                watch_paths.add(str(f.parent))
+
+        async for changes in awatch(*watch_paths):
+            for change_type, changed_path_str in changes:
+                changed_path = Path(changed_path_str).resolve()
+
+                if change_type == Change.deleted:
+                    # Check if it's a watched file
+                    if changed_path in [f.resolve() for f in self._files]:
+                        self.call_from_thread(
+                            self._notify, f"File removed: {changed_path.name}"
+                        )
+                    continue
+
+                # Only care about .md files
+                if changed_path.suffix != ".md":
+                    continue
+
+                # Skip sidecar and snapshot files
+                if changed_path.name.endswith(".review.json") or changed_path.name.endswith(".snapshot"):
+                    continue
+
+                # Check if it's an existing watched file
+                resolved_files = [f.resolve() for f in self._files]
+                if changed_path in resolved_files:
+                    idx = resolved_files.index(changed_path)
+                    self.call_from_thread(self._handle_file_change, idx)
+                elif self._watch_dir and change_type == Change.added:
+                    # New file in watched directory
+                    self.call_from_thread(self._handle_new_file, changed_path)
+
+    def _stop_file_watcher(self) -> None:
+        """Stop the file watcher worker."""
+        if self._watcher_worker and not self._watcher_worker.is_finished:
+            self._watcher_worker.cancel()
+
+    def _handle_file_change(self, file_index: int) -> None:
+        """Re-read and re-render a file that changed on disk."""
+        path = self._files[file_index]
+
+        if not path.exists():
+            return
+
+        content = path.read_text()
+        new_hash = compute_hash(content)
+        review = self._reviews[file_index]
+
+        # No-op if content hash matches
+        if review.content_hash == new_hash:
+            return
+
+        # Update lines and hash
+        self._lines[file_index] = content.splitlines()
+
+        # Reconcile drift if there are comments
+        if review.comments:
+            reconcile_drift(review, self._lines[file_index])
+
+        review.content_hash = new_hash
+        save_review(path, review)
+
+        # Update snapshot diff availability
+        snapshot = self._snapshots.get(file_index)
+        self._diff_available[file_index] = snapshot is not None and snapshot != content
+        self._diff_mode[file_index] = False
+
+        # If this is the currently viewed file, reload it
+        if file_index == self._current_index:
+            # Save cursor and scroll position before reload
+            md = self.query_one(ReviewMarkdown)
+            saved_cursor = md.cursor_index
+            try:
+                scroll = self.query_one("#content-scroll", ScrollableContainer)
+                saved_scroll = scroll.scroll_y
+            except Exception:
+                saved_scroll = 0
+
+            # Re-render
+            if self._mermaid_ascii_on.get(file_index, True):
+                processed, diagrams = preprocess_mermaid(content, render_ascii=True)
+            else:
+                processed, diagrams = preprocess_mermaid(content, render_ascii=False)
+            self._mermaid_data[file_index] = diagrams
+            md.update(processed)
+
+            def restore_after_reload() -> None:
+                md = self.query_one(ReviewMarkdown)
+                review = self._reviews[file_index]
+                md.set_comments(review.comments)
+                # Clamp cursor to new block count
+                blocks = md.blocks
+                md.cursor_index = min(saved_cursor, len(blocks) - 1) if blocks else 0
+                self._apply_diff_if_needed()
+                self._update_popover()
+                self._update_title_bar()
+                self._update_footer()
+                # Restore scroll
+                try:
+                    scroll = self.query_one("#content-scroll", ScrollableContainer)
+                    scroll.scroll_y = saved_scroll
+                except Exception:
+                    pass
+
+            self.set_timer(0.1, restore_after_reload)
+
+        self._notify(f"File reloaded: {path.name}")
+
+    def _handle_new_file(self, new_path: Path) -> None:
+        """Handle a new .md file detected in the watch directory."""
+        resolved = new_path.resolve()
+        if resolved in [f.resolve() for f in self._files]:
+            return  # Already tracked
+
+        content = new_path.read_text()
+        idx = len(self._files)
+        self._files.append(resolved)
+        self._lines[idx] = content.splitlines()
+
+        review = load_review(resolved)
+        review.content_hash = compute_hash(content)
+        self._reviews.append(review)
+        self._mermaid_ascii_on[idx] = True
+
+        snapshot = load_snapshot(resolved)
+        self._snapshots[idx] = snapshot
+        self._diff_available[idx] = snapshot is not None and snapshot != content
+        self._diff_mode[idx] = False
+
+        self._update_title_bar()
+        self._notify(f"New file detected: {new_path.name}")
+
     # --- Help ---
 
     def action_show_help(self) -> None:
@@ -707,6 +899,7 @@ class ReviewApp(App):
         self.exit(self._exit_code)
 
     def on_unmount(self) -> None:
+        self._stop_file_watcher()
         self._print_summary()
 
     def _print_summary(self) -> None:

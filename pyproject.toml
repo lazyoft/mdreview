@@ -6,15 +6,47 @@ build-backend = "hatchling.build"
 name = "mdreview"
 version = "0.1.0"
 description = "Terminal UI for reviewing markdown documents with inline comments"
+readme = "README.md"
+license = "MIT"
 requires-python = ">=3.10"
+authors = [
+    { name = "Fabrizio Chignoli" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Text Processing :: Markup :: Markdown",
+]
 dependencies = [
     "textual>=0.80",
     "mermaid-ascii-diagrams",
     "click>=8.0",
+    "watchfiles>=0.21",
 ]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+]
+
+[project.urls]
+Homepage = "https://github.com/fabriziochignoli/mdreview"
+Repository = "https://github.com/fabriziochignoli/mdreview"
+Issues = "https://github.com/fabriziochignoli/mdreview/issues"
 
 [project.scripts]
 mdreview = "mdreview.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mdreview"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

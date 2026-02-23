@@ -1,6 +1,23 @@
 __pycache__/
 *.pyc
+*.pyo
 *.egg-info/
 dist/
 build/
+.venv/
 .review.json
+*.snapshot
+.pytest_cache/
+*.egg
+.ruff_cache/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

@@ -46,4 +46,11 @@ This project uses [OpenSpec](https://github.com/anthropics/claude-code) for stru
 
 ## Testing
 
-No test suite yet.
+```bash
+pip install -e ".[test]"   # Install with test dependencies
+pytest                     # Run all tests
+pytest -v                  # Verbose output
+pytest tests/test_storage.py  # Run a specific module
+```
+
+Tests cover models, storage (sidecar I/O, drift reconciliation), diff computation, and mermaid preprocessing. Test cases map to scenarios defined in `openspec/specs/`.
