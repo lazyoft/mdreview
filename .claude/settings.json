@@ -3,8 +3,13 @@
     "PostToolUse": [
       {
         "matcher": "Edit|Write",
-        "command": "ruff format --quiet \"$CLAUDE_FILE_PATH\" && ruff check --fix --quiet \"$CLAUDE_FILE_PATH\"",
-        "timeout": 10000
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ruff format --quiet \"$CLAUDE_FILE_PATH\" && ruff check --fix --quiet \"$CLAUDE_FILE_PATH\"",
+            "timeout": 10000
+          }
+        ]
       }
     ]
   }
