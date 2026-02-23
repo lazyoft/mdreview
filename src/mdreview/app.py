@@ -173,6 +173,17 @@ class ReviewApp(App):
     }
     """
 
+    BINDINGS = [
+        Binding(
+            DEFAULT_BINDINGS[action],
+            action if action != "quit" else "quit_app",
+            ACTION_LABELS.get(action, action),
+            priority=True,
+            id=action,
+        )
+        for action in DEFAULT_BINDINGS
+    ]
+
     def __init__(
         self,
         files: list[Path],
@@ -180,17 +191,15 @@ class ReviewApp(App):
         keybindings: dict[str, str] | None = None,
     ) -> None:
         self._keybindings = keybindings or dict(DEFAULT_BINDINGS)
-        # Build BINDINGS dynamically before super().__init__
-        self.BINDINGS = [
-            Binding(
-                self._keybindings[action],
-                action if action != "quit" else "quit_app",
-                ACTION_LABELS.get(action, action),
-                priority=True,
-            )
-            for action in DEFAULT_BINDINGS
-        ]
         super().__init__()
+        # Apply custom keybindings via Textual's keymap system
+        keymap = {
+            action: self._keybindings[action]
+            for action in DEFAULT_BINDINGS
+            if self._keybindings[action] != DEFAULT_BINDINGS[action]
+        }
+        if keymap:
+            self.set_keymap(keymap)
         self._files = files
         self._watch_dir = watch_dir
         self._watcher_worker = None
