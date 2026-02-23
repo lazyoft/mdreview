@@ -50,9 +50,13 @@ The system SHALL display a floating popover with comment details when the cursor
 ### Requirement: Delete a comment
 The system SHALL allow the user to delete an existing comment from the popover, or delete all comments on the current file via batch deletion.
 
-#### Scenario: Delete comment from popover
-- **WHEN** the comment popover is active and user presses `d`
+#### Scenario: Delete with single comment
+- **WHEN** the comment popover is active with exactly one comment and user presses `d`
 - **THEN** the comment is removed from the sidecar file, the popover updates or dismisses, and the left-border indicator / background highlight are removed if no other comments remain on those lines
+
+#### Scenario: Delete with multiple comments
+- **WHEN** the comment popover is active with multiple comments and user presses `d`
+- **THEN** a picker dialog lists all comments (showing line range and body preview), and the selected comment is deleted
 
 #### Scenario: Batch delete all comments
 - **WHEN** the user presses `D` (Shift+D) and the current file has comments
