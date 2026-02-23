@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
 name = "mdreview"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Terminal UI for reviewing markdown documents with inline comments"
 readme = "README.md"
 license = "MIT"
@@ -48,6 +48,12 @@ mdreview = "mdreview.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mdreview"]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.version.raw-options]
+version_scheme = "no-guess-dev"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

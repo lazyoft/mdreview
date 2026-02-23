@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "ruff format --quiet \"$CLAUDE_FILE_PATH\" && ruff check --fix --quiet \"$CLAUDE_FILE_PATH\"",
+            "command": "case \"$CLAUDE_FILE_PATH\" in *.py) ruff format --quiet \"$CLAUDE_FILE_PATH\" && ruff check --fix --quiet \"$CLAUDE_FILE_PATH\" ;; esac",
             "timeout": 10000
           }
         ]
