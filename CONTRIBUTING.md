@@ -5,7 +5,7 @@ Thanks for your interest in contributing!
 ## Development Setup
 
 ```bash
-git clone https://github.com/fabriziochignoli/mdreview.git
+git clone https://github.com/lazyoft/mdreview.git
 cd mdreview
 python -m venv .venv
 source .venv/bin/activate

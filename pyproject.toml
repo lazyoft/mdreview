@@ -38,9 +38,9 @@ test = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/fabriziochignoli/mdreview"
-Repository = "https://github.com/fabriziochignoli/mdreview"
-Issues = "https://github.com/fabriziochignoli/mdreview/issues"
+Homepage = "https://github.com/lazyoft/mdreview"
+Repository = "https://github.com/lazyoft/mdreview"
+Issues = "https://github.com/lazyoft/mdreview/issues"
 
 [project.scripts]
 mdreview = "mdreview.cli:main"

@@ -15,14 +15,14 @@ Terminal UI for reviewing markdown documents with inline comments. Built with Py
 ## Installation
 
 ```bash
-# Recommended: install globally with pipx
-pipx install mdreview
+# Install globally from source with uv
+uv tool install --editable /path/to/mdreview
 
-# Or with uv
-uv tool install mdreview
+# Or with pipx
+pipx install /path/to/mdreview
 
-# Or with pip (into a virtualenv)
-pip install mdreview
+# Or from GitHub
+uv tool install git+https://github.com/lazyoft/mdreview.git
 ```
 
 ## Usage
@@ -42,8 +42,12 @@ mdreview --dir docs/
 
 | Key | Action |
 |-----|--------|
+| `Up/Down` | Move cursor between blocks |
+| `Left/Right` | Previous/next file |
 | `c` | Start/confirm line selection for comment |
 | `Shift+Up/Down` | Extend selection |
+| `Ctrl+S` | Submit comment (in modal) |
+| `Esc` | Cancel selection or input |
 | `d` | Delete comment (when popover visible) |
 | `D` | Delete all comments on file |
 | `e` | Edit comment |
@@ -51,6 +55,7 @@ mdreview --dir docs/
 | `R` | Request changes |
 | `v` | Toggle diff view |
 | `f` | Open file selector |
+| `m` | Toggle Mermaid ASCII/raw |
 | `o` | Open Mermaid diagram in browser |
 | `?` | Show help |
 | `q` | Quit |
@@ -67,17 +72,15 @@ mdreview --dir docs/
 
 ```bash
 # Clone and install in dev mode
-git clone https://github.com/fabriziochignoli/mdreview.git
+git clone https://github.com/lazyoft/mdreview.git
 cd mdreview
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[test]"
+uv venv && uv pip install -e ".[test]"
 
 # Run tests
-pytest
+uv run pytest
 
 # Lint
-ruff check src/
+uv run ruff check src/
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
