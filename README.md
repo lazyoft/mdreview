@@ -15,13 +15,16 @@ Terminal UI for reviewing markdown documents with inline comments. Built with Py
 ## Installation
 
 ```bash
-# Install globally from source with uv
-uv tool install --editable /path/to/mdreview
+# From PyPI
+pip install mdreview
+
+# Or with uv
+uv tool install mdreview
 
 # Or with pipx
-pipx install /path/to/mdreview
+pipx install mdreview
 
-# Or from GitHub
+# From source
 uv tool install git+https://github.com/lazyoft/mdreview.git
 ```
 
