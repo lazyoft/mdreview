@@ -37,6 +37,7 @@ src/mdreview/
 - **Mermaid rendering**: Mermaid code blocks are preprocessed into ASCII art via `mermaid-ascii-diagrams`. Press `o` to open in mermaid.live, `m` to toggle ASCII/raw.
 - **Exit codes**: 0 = all approved, 1 = changes requested, 2 = incomplete/unreviewed files.
 - **Block-level cursor**: Navigation operates on Textual MarkdownBlock elements, not individual lines. Comments reference source line ranges.
+- **Always cut PRs**: Never push directly to main. Create a branch and open a PR for every change.
 
 ## OpenSpec
 
