@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import webbrowser
-from datetime import datetime, timezone
 from pathlib import Path
 
 from textual.app import App, ComposeResult
@@ -14,7 +13,19 @@ from textual.widgets import Static
 from mdreview.diff import compute_block_diff
 from mdreview.markdown import ReviewMarkdown
 from mdreview.mermaid import preprocess_mermaid
-from mdreview.models import Comment, ReviewFile, ReviewStatus
+from mdreview.models import ReviewFile, ReviewStatus
+from mdreview.operations import (
+    add_comment,
+    approve_file,
+    compute_exit_code,
+    delete_all_comments,
+    delete_comment,
+    edit_comment,
+    format_summary,
+    handle_content_change,
+    request_changes,
+    should_save_snapshot,
+)
 from mdreview.storage import (
     compute_hash,
     load_review,
@@ -451,18 +462,9 @@ class ReviewApp(App):
             self.push_screen(CommentInput(line_start, line_end), callback=on_comment)
 
     def _add_comment(self, line_start: int, line_end: int, body: str) -> None:
-        lines = self._lines[self._current_index]
-        anchor = lines[line_start - 1].strip() if line_start - 1 < len(lines) else ""
-
-        comment = Comment(
-            line_start=line_start,
-            line_end=line_end,
-            anchor_text=anchor,
-            body=body,
-        )
-
         review = self._reviews[self._current_index]
-        review.comments.append(comment)
+        lines = self._lines[self._current_index]
+        add_comment(review, lines, line_start, line_end, body)
         save_review(self._files[self._current_index], review)
 
         md = self.query_one(ReviewMarkdown)
@@ -477,10 +479,9 @@ class ReviewApp(App):
         if not popover.active_comments:
             return
 
-        # Delete the first visible comment
         comment = popover.active_comments[0]
         review = self._reviews[self._current_index]
-        review.comments = [c for c in review.comments if c.id != comment.id]
+        delete_comment(review, comment.id)
         save_review(self._files[self._current_index], review)
 
         md = self.query_one(ReviewMarkdown)
@@ -503,16 +504,15 @@ class ReviewApp(App):
         )
 
         def on_edit(text: str | None) -> None:
-            if text and text != comment.body:
-                comment.body = text
-                comment.updated_at = datetime.now(timezone.utc).isoformat()
+            if text:
                 review = self._reviews[self._current_index]
-                save_review(self._files[self._current_index], review)
-
-                md = self.query_one(ReviewMarkdown)
-                md.set_comments(review.comments)
-                self._update_popover()
-                self._notify(f"Comment updated ({range_str})")
+                result = edit_comment(review, comment.id, text)
+                if result:
+                    save_review(self._files[self._current_index], review)
+                    md = self.query_one(ReviewMarkdown)
+                    md.set_comments(review.comments)
+                    self._update_popover()
+                    self._notify(f"Comment updated ({range_str})")
 
         self.push_screen(
             CommentInput(
@@ -535,16 +535,15 @@ class ReviewApp(App):
 
         def on_confirm(confirmed: bool) -> None:
             if confirmed:
-                review.comments.clear()
-                review.status = ReviewStatus.UNREVIEWED
-                review.reviewed_at = None
+                deleted = delete_all_comments(review)
                 save_review(self._files[self._current_index], review)
 
                 md = self.query_one(ReviewMarkdown)
                 md.set_comments(review.comments)
                 self.query_one(CommentPopover).hide()
                 self._update_title_bar()
-                self._notify(f"Deleted {count} comment(s)")
+                self._update_footer()
+                self._notify(f"Deleted {deleted} comment(s)")
 
         from mdreview.widgets.confirm import ConfirmDialog
 
@@ -579,8 +578,7 @@ class ReviewApp(App):
 
     def _do_approve(self) -> None:
         review = self._reviews[self._current_index]
-        review.status = ReviewStatus.APPROVED
-        review.reviewed_at = datetime.now(timezone.utc).isoformat()
+        approve_file(review)
         save_review(self._files[self._current_index], review)
         self._maybe_save_snapshot()
         self._update_title_bar()
@@ -596,8 +594,7 @@ class ReviewApp(App):
             self._notify("Add at least one comment before requesting changes")
             return
 
-        review.status = ReviewStatus.CHANGES_REQUESTED
-        review.reviewed_at = datetime.now(timezone.utc).isoformat()
+        request_changes(review)
         save_review(self._files[self._current_index], review)
         self._maybe_save_snapshot()
         self._update_title_bar()
@@ -610,7 +607,7 @@ class ReviewApp(App):
         path = self._files[idx]
         content = path.read_text()
         existing_snapshot = self._snapshots.get(idx)
-        if existing_snapshot != content:
+        if should_save_snapshot(content, existing_snapshot):
             save_snapshot(path, content)
             self._snapshots[idx] = content
             self._diff_available[idx] = False
@@ -760,21 +757,13 @@ class ReviewApp(App):
             return
 
         content = path.read_text()
-        new_hash = compute_hash(content)
         review = self._reviews[file_index]
+        result = handle_content_change(review, content, review.content_hash)
 
-        # No-op if content hash matches
-        if review.content_hash == new_hash:
+        if not result.changed:
             return
 
-        # Update lines and hash
-        self._lines[file_index] = content.splitlines()
-
-        # Reconcile drift if there are comments
-        if review.comments:
-            reconcile_drift(review, self._lines[file_index])
-
-        review.content_hash = new_hash
+        self._lines[file_index] = result.lines
         save_review(path, review)
 
         # Update snapshot diff availability
@@ -832,10 +821,10 @@ class ReviewApp(App):
         content = new_path.read_text()
         idx = len(self._files)
         self._files.append(resolved)
-        self._lines[idx] = content.splitlines()
 
         review = load_review(resolved)
-        review.content_hash = compute_hash(content)
+        result = handle_content_change(review, content, review.content_hash)
+        self._lines[idx] = result.lines
         self._reviews.append(review)
         self._mermaid_ascii_on[idx] = True
 
@@ -883,19 +872,7 @@ class ReviewApp(App):
             self._exit_with_summary()
 
     def _exit_with_summary(self) -> None:
-        # Compute exit code
-        has_changes = any(
-            r.status == ReviewStatus.CHANGES_REQUESTED for r in self._reviews
-        )
-        has_unreviewed = any(r.status == ReviewStatus.UNREVIEWED for r in self._reviews)
-
-        if has_unreviewed:
-            self._exit_code = 2
-        elif has_changes:
-            self._exit_code = 1
-        else:
-            self._exit_code = 0
-
+        self._exit_code = compute_exit_code(self._reviews)
         self.exit(self._exit_code)
 
     def on_unmount(self) -> None:
@@ -904,38 +881,4 @@ class ReviewApp(App):
 
     def _print_summary(self) -> None:
         """Print review summary to stdout after TUI closes."""
-        print("\nReview complete:")
-        for i, path in enumerate(self._files):
-            review = self._reviews[i]
-            parent = path.parent.name
-            name = f"{parent}/{path.name}" if parent else path.name
-
-            match review.status:
-                case ReviewStatus.APPROVED:
-                    icon = "\u2713"
-                    label = "approved"
-                case ReviewStatus.CHANGES_REQUESTED:
-                    count = len(review.comments)
-                    icon = "\u2717"
-                    label = f"changes requested ({count} comment{'s' if count != 1 else ''})"
-                case _:
-                    icon = "-"
-                    label = "not reviewed"
-
-            print(f"  {icon} {name:40s} {label}")
-
-        approved = sum(1 for r in self._reviews if r.status == ReviewStatus.APPROVED)
-        changes = sum(
-            1 for r in self._reviews if r.status == ReviewStatus.CHANGES_REQUESTED
-        )
-        unreviewed = sum(
-            1 for r in self._reviews if r.status == ReviewStatus.UNREVIEWED
-        )
-        print()
-        if approved:
-            print(f"  {approved} approved")
-        if changes:
-            print(f"  {changes} changes requested")
-        if unreviewed:
-            print(f"  {unreviewed} not reviewed")
-        print(f"\nExit code: {self._exit_code}")
+        print(format_summary(self._files, self._reviews))

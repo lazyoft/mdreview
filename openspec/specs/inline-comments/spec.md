@@ -14,11 +14,11 @@ The system SHALL allow the user to select a line range using the `c` key to defi
 - **THEN** the selection is cleared and no comment input appears
 
 ### Requirement: Write and save comments
-The system SHALL provide a modal text input for writing a comment and persist it to the sidecar review file upon submission.
+The system SHALL provide a modal text input for writing a comment and persist it to the sidecar review file upon submission. Comment creation logic SHALL be delegated to the `add_comment` operation from `operations.py`.
 
 #### Scenario: Submit a comment
 - **WHEN** user types a comment in the modal input and presses `Ctrl+Enter`
-- **THEN** the comment is saved to `<filename>.review.json` with the line range, anchor text, timestamp, and a unique ID, and a left-border indicator + background highlight appear on the commented lines using a blue (`#6090d0`) border and dark blue background (visually distinct from the `$accent` cursor indicator)
+- **THEN** the app calls `add_comment(review, lines, line_start, line_end, body)` from `operations.py`, then calls `save_review()` to persist, then updates the UI (comment highlighting, popover, title bar)
 
 #### Scenario: Cancel comment input
 - **WHEN** user presses `Escape` during comment input
@@ -48,11 +48,11 @@ The system SHALL display a floating popover with comment details when the cursor
 - **THEN** the popover shows normally with no additional hint
 
 ### Requirement: Delete a comment
-The system SHALL allow the user to delete an existing comment from the popover.
+The system SHALL allow the user to delete an existing comment from the popover. Deletion logic SHALL be delegated to the `delete_comment` operation from `operations.py`.
 
 #### Scenario: Delete comment from popover
 - **WHEN** the comment popover is active and user presses `d`
-- **THEN** the comment is removed from the sidecar file, the popover updates or dismisses, and the left-border indicator / background highlight are removed if no other comments remain on those lines
+- **THEN** the app calls `delete_comment(review, comment_id)` from `operations.py`, then calls `save_review()` to persist, then updates the UI (comment highlighting, popover, title bar)
 
 ### Requirement: Comment persistence format
 The system SHALL store comments in a JSON sidecar file named `<filename>.review.json` alongside the reviewed markdown file.
