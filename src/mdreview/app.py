@@ -14,7 +14,7 @@ from mdreview.diff import compute_block_diff
 from mdreview.keybindings import DEFAULT_BINDINGS, ACTION_LABELS, key_label
 from mdreview.markdown import ReviewMarkdown
 from mdreview.mermaid import preprocess_mermaid
-from mdreview.models import ReviewFile, ReviewStatus
+from mdreview.models import Comment, ReviewFile, ReviewStatus
 from mdreview.operations import (
     add_comment,
     approve_file,
@@ -36,6 +36,7 @@ from mdreview.storage import (
     save_snapshot,
 )
 from mdreview.widgets.comment_input import CommentInput
+from mdreview.widgets.comment_picker import CommentPicker
 from mdreview.widgets.comment_popover import CommentPopover
 from mdreview.widgets.file_selector import FileSelector
 
@@ -246,6 +247,14 @@ class ReviewApp(App):
             yield ReviewMarkdown()
         yield CommentPopover()
         yield FooterBar(keybindings=self._keybindings)
+
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        """Disable app-level actions when a modal screen is active."""
+        from textual.screen import ModalScreen
+
+        if isinstance(self.screen, ModalScreen):
+            return False
+        return True
 
     def on_mount(self) -> None:
         self._load_file(0)
@@ -492,7 +501,15 @@ class ReviewApp(App):
         if not popover.active_comments:
             return
 
-        comment = popover.active_comments[0]
+        if len(popover.active_comments) == 1:
+            self._do_delete_comment(popover.active_comments[0])
+        else:
+            self.push_screen(
+                CommentPicker(popover.active_comments, title="Delete which comment?"),
+                callback=lambda c: c and self._do_delete_comment(c),
+            )
+
+    def _do_delete_comment(self, comment: Comment) -> None:
         review = self._reviews[self._current_index]
         delete_comment(review, comment.id)
         save_review(self._files[self._current_index], review)
@@ -502,6 +519,7 @@ class ReviewApp(App):
 
         self._update_popover()
         self._update_title_bar()
+        self._update_footer()
         self._notify("Comment deleted")
 
     def action_edit_comment(self) -> None:
@@ -509,7 +527,15 @@ class ReviewApp(App):
         if not popover.active_comments:
             return
 
-        comment = popover.active_comments[0]
+        if len(popover.active_comments) == 1:
+            self._do_edit_comment(popover.active_comments[0])
+        else:
+            self.push_screen(
+                CommentPicker(popover.active_comments, title="Edit which comment?"),
+                callback=lambda c: c and self._do_edit_comment(c),
+            )
+
+    def _do_edit_comment(self, comment: Comment) -> None:
         range_str = (
             f"L{comment.line_start}"
             if comment.line_start == comment.line_end
