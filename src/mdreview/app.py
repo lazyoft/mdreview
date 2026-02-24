@@ -183,6 +183,8 @@ class ReviewApp(App):
             id=action,
         )
         for action in DEFAULT_BINDINGS
+    ] + [
+        Binding("escape", "cancel_selection", "Cancel selection", show=False),
     ]
 
     def __init__(
@@ -408,6 +410,14 @@ class ReviewApp(App):
         block = md.cursor_block
         if block:
             block.scroll_visible()
+
+    def action_cancel_selection(self) -> None:
+        """Escape: cancel active selection."""
+        if self._selecting:
+            self._selecting = False
+            self._selection_start = None
+            self.query_one(ReviewMarkdown).clear_selection()
+            self.query_one(FooterBar).set_mode("normal")
 
     def action_next_file(self) -> None:
         if self._selecting:
