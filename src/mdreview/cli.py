@@ -1,5 +1,6 @@
 """CLI entry point for mdreview."""
 
+from importlib.metadata import version
 from pathlib import Path
 
 import click
@@ -38,6 +39,7 @@ def collect_files(files: tuple[str, ...], directory: str | None) -> list[Path]:
 
 
 @click.command()
+@click.version_option(version=version("mdreview"), prog_name="mdreview")
 @click.argument("files", nargs=-1)
 @click.option(
     "--dir", "directory", default=None, help="Recursively find .md files in directory"
