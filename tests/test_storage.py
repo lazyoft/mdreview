@@ -51,6 +51,7 @@ class TestSaveLoadReview:
             assert load.body == orig.body
             assert load.created_at == orig.created_at
             assert load.orphaned == orig.orphaned
+            assert load.updated_at == orig.updated_at
 
     def test_fresh_review_when_no_sidecar(self, tmp_md_file):
         review = load_review(tmp_md_file)

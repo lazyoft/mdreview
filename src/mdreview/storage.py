@@ -54,6 +54,7 @@ def save_review(md_path: Path, review: ReviewFile) -> None:
                 "body": c.body,
                 "created_at": c.created_at,
                 "orphaned": c.orphaned,
+                "updated_at": c.updated_at,
             }
             for c in review.comments
         ],
