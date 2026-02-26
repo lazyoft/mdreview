@@ -2,8 +2,30 @@
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import Iterable
+
+from markdown_it import MarkdownIt
+from textual.await_complete import AwaitComplete
 from textual.widgets import Markdown, Static
-from textual.widgets._markdown import MarkdownBlock
+from textual.widgets._markdown import (
+    HEADINGS,
+    MarkdownBlock,
+    MarkdownBlockQuote,
+    MarkdownBulletList,
+    MarkdownFence,
+    MarkdownHorizontalRule,
+    MarkdownOrderedList,
+    MarkdownOrderedListItem,
+    MarkdownParagraph,
+    MarkdownTable,
+    MarkdownTBody,
+    MarkdownTD,
+    MarkdownTH,
+    MarkdownTHead,
+    MarkdownTR,
+    MarkdownUnorderedListItem,
+)
 
 from mdreview.models import Comment
 
@@ -70,6 +92,173 @@ class ReviewMarkdown(Markdown):
         self._cursor_index: int = 0
         self._comments: list[Comment] = []
         self._diff_tags: list[str] = []
+
+    def update(self, markdown: str) -> AwaitComplete:
+        """Override to attach source_range from token.map onto each block."""
+        parser = (
+            MarkdownIt("gfm-like")
+            if self._parser_factory is None
+            else self._parser_factory()
+        )
+
+        table_of_contents: list[tuple[int, str, str | None]] = []
+
+        def parse_markdown(tokens) -> Iterable[MarkdownBlock]:
+            stack: list[MarkdownBlock] = []
+            # Track the token.map for the opening token of each stack level
+            map_stack: list[list[int] | None] = []
+            block_id: int = 0
+
+            for token in tokens:
+                token_type = token.type
+                if token_type == "heading_open":
+                    block_id += 1
+                    blk = HEADINGS[token.tag](self, id=f"block{block_id}")
+                    blk.source_range = tuple(token.map) if token.map else None
+                    stack.append(blk)
+                    map_stack.append(token.map)
+                elif token_type == "hr":
+                    blk = MarkdownHorizontalRule(self)
+                    blk.source_range = tuple(token.map) if token.map else None
+                    yield blk
+                elif token_type == "paragraph_open":
+                    blk = MarkdownParagraph(self)
+                    blk.source_range = tuple(token.map) if token.map else None
+                    stack.append(blk)
+                    map_stack.append(token.map)
+                elif token_type == "blockquote_open":
+                    blk = MarkdownBlockQuote(self)
+                    blk.source_range = tuple(token.map) if token.map else None
+                    stack.append(blk)
+                    map_stack.append(token.map)
+                elif token_type == "bullet_list_open":
+                    blk = MarkdownBulletList(self)
+                    blk.source_range = tuple(token.map) if token.map else None
+                    stack.append(blk)
+                    map_stack.append(token.map)
+                elif token_type == "ordered_list_open":
+                    blk = MarkdownOrderedList(self)
+                    blk.source_range = tuple(token.map) if token.map else None
+                    stack.append(blk)
+                    map_stack.append(token.map)
+                elif token_type == "list_item_open":
+                    if token.info:
+                        blk = MarkdownOrderedListItem(self, token.info)
+                    else:
+                        item_count = sum(
+                            1
+                            for b in stack
+                            if isinstance(b, MarkdownUnorderedListItem)
+                        )
+                        blk = MarkdownUnorderedListItem(
+                            self,
+                            self.BULLETS[item_count % len(self.BULLETS)],
+                        )
+                    blk.source_range = tuple(token.map) if token.map else None
+                    stack.append(blk)
+                    map_stack.append(token.map)
+                elif token_type == "table_open":
+                    blk = MarkdownTable(self)
+                    blk.source_range = tuple(token.map) if token.map else None
+                    stack.append(blk)
+                    map_stack.append(token.map)
+                elif token_type == "tbody_open":
+                    blk = MarkdownTBody(self)
+                    blk.source_range = tuple(token.map) if token.map else None
+                    stack.append(blk)
+                    map_stack.append(token.map)
+                elif token_type == "thead_open":
+                    blk = MarkdownTHead(self)
+                    blk.source_range = tuple(token.map) if token.map else None
+                    stack.append(blk)
+                    map_stack.append(token.map)
+                elif token_type == "tr_open":
+                    blk = MarkdownTR(self)
+                    blk.source_range = tuple(token.map) if token.map else None
+                    stack.append(blk)
+                    map_stack.append(token.map)
+                elif token_type == "th_open":
+                    blk = MarkdownTH(self)
+                    blk.source_range = tuple(token.map) if token.map else None
+                    stack.append(blk)
+                    map_stack.append(token.map)
+                elif token_type == "td_open":
+                    blk = MarkdownTD(self)
+                    blk.source_range = tuple(token.map) if token.map else None
+                    stack.append(blk)
+                    map_stack.append(token.map)
+                elif token_type.endswith("_close"):
+                    block = stack.pop()
+                    map_stack.pop()
+                    if token.type == "heading_close":
+                        heading = block._text.plain
+                        level = int(token.tag[1:])
+                        table_of_contents.append((level, heading, block.id))
+                    if stack:
+                        stack[-1]._blocks.append(block)
+                    else:
+                        yield block
+                elif token_type == "inline":
+                    stack[-1].build_from_token(token)
+                elif token_type in ("fence", "code_block"):
+                    fence = MarkdownFence(
+                        self, token.content.rstrip(), token.info
+                    )
+                    fence.source_range = tuple(token.map) if token.map else None
+                    if stack:
+                        stack[-1]._blocks.append(fence)
+                    else:
+                        yield fence
+                else:
+                    external = self.unhandled_token(token)
+                    if external is not None:
+                        if token.map:
+                            external.source_range = tuple(token.map)
+                        if stack:
+                            stack[-1]._blocks.append(external)
+                        else:
+                            yield external
+
+        markdown_block = self.query("MarkdownBlock")
+
+        async def await_update() -> None:
+            BATCH_SIZE = 200
+            batch: list[MarkdownBlock] = []
+            tokens = await asyncio.get_running_loop().run_in_executor(
+                None, parser.parse, markdown
+            )
+
+            async with self.lock:
+                removed: bool = False
+
+                async def mount_batch(batch: list[MarkdownBlock]) -> None:
+                    nonlocal removed
+                    if removed:
+                        await self.mount_all(batch)
+                    else:
+                        with self.app.batch_update():
+                            await markdown_block.remove()
+                            await self.mount_all(batch)
+                        removed = True
+
+                for block in parse_markdown(tokens):
+                    batch.append(block)
+                    if len(batch) == BATCH_SIZE:
+                        await mount_batch(batch)
+                        batch.clear()
+                if batch:
+                    await mount_batch(batch)
+                if not removed:
+                    await markdown_block.remove()
+
+            self._table_of_contents = table_of_contents
+            self.post_message(
+                Markdown.TableOfContentsUpdated(
+                    self, self._table_of_contents
+                ).set_sender(self)
+            )
+
+        return AwaitComplete(await_update())
 
     @property
     def blocks(self) -> list[MarkdownBlock]:
